@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentUser } from "@shopify/shop-minis-react";
+import { SparklesText } from "@/components/ui/sparkles-text";
 
 export function App() {
   const { currentUser } = useCurrentUser();
@@ -13,9 +14,14 @@ export function App() {
     <div id="lego-avatar-container" className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="pt-safe-top pt-12 px-6 pb-8">
-        <h1 className="text-2xl font-bold text-center text-gray-900">
-          {currentUser?.displayName || 'Shams'}'s Lego Avatar
-        </h1>
+        <div className="text-center">
+          <SparklesText 
+            text={`${currentUser?.displayName || 'Shams'}'s Lego Avatar`}
+            className="text-2xl font-bold text-gray-900"
+            colors={{ first: "#F59E0B", second: "#EF4444" }}
+            sparklesCount={8}
+          />
+        </div>
       </div>
 
       {/* Main Content with full-screen grid */}
