@@ -1,7 +1,7 @@
 import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Center } from '@react-three/drei';
-import { usePopularProducts, ProductCard } from "@shopify/shop-minis-react";
+import { usePopularProducts, ProductCard, useCurrentUser } from "@shopify/shop-minis-react";
 import * as THREE from 'three';
 
 
@@ -91,52 +91,9 @@ function LEGOMinifig({ selectedProduct, autoFit }: { selectedProduct: any; autoF
   );
 }
 
-
-
-
-
-// Product selector component
-function ProductSelector({ products, selectedProduct, onSelectProduct }: {
-  products: any[];
-  selectedProduct: any;
-  onSelectProduct: (product: any) => void;
-}) {
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-4 max-h-64 overflow-y-auto">
-      <h3 className="text-lg font-bold mb-3 text-center">Select a T-Shirt</h3>
-      <div className="grid grid-cols-1 gap-2">
-        {products.map((product) => (
-          <button
-            key={product.id}
-            onClick={() => onSelectProduct(product)}
-            className={`p-2 rounded-lg border-2 transition-all ${
-              selectedProduct?.id === product.id
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              {product.images?.[0]?.url && (
-                <img 
-                  src={product.images[0].url} 
-                  alt={product.title}
-                  className="w-12 h-12 object-cover rounded"
-                />
-              )}
-              <div className="text-left flex-1">
-                <p className="font-medium text-sm">{product.title}</p>
-                <p className="text-xs text-gray-500">{product.vendor}</p>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function App() {
   const { products, loading, error } = usePopularProducts();
+  const { currentUser, loading: userLoading, error: userError } = useCurrentUser();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [autoFit, setAutoFit] = useState(true);
 
@@ -156,11 +113,12 @@ export function App() {
   }) || [];
 
   // Auto-select first t-shirt when available
-  React.useEffect(() => {
-    if (tShirts.length > 0 && !selectedProduct) {
-      setSelectedProduct(tShirts[0]);
-    }
-  }, [tShirts, selectedProduct]);
+
+  // React.useEffect(() => {
+  //   if (tShirts.length > 0 && !selectedProduct) {
+  //     setSelectedProduct(tShirts[0]);
+  //   }
+  // }, [tShirts, selectedProduct]);
 
   if (loading) {
     return (
@@ -194,21 +152,8 @@ export function App() {
       {/* Header */}
       <div className="pt-8 px-4 pb-4">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
-          Lego Avatar
+        {currentUser?.displayName}'s Lego Avatar
         </h1>
-        <p className="text-center text-gray-600 mb-4">
-          Select a t-shirt to see it on our LEGO figure!
-        </p>
-        
-        {/* Debug Toggle */}
-        <div className="text-center mb-4">
-          <button 
-            onClick={() => setAutoFit(!autoFit)}
-            className={`${autoFit ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded text-sm`}
-          >
-            Auto-Fit: {autoFit ? 'ON' : 'OFF'}
-          </button>
-        </div>
       </div>
 
       {/* Debug Info */}
@@ -216,10 +161,8 @@ export function App() {
         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm">
           <p><strong>Debug Info:</strong></p>
           <p>Popular Products loaded: {products?.length || 0}</p>
-          <p>T-shirts found: {tShirts.length}</p>
-          <p>Selected product: {selectedProduct?.title || 'None'}</p>
+          <p>Selected product(s): {selectedProduct?.title || 'None'}</p>
           <p>Model path: /models/minifig.glb</p>
-          <p>Auto-Fit: {autoFit ? '✅ ON (stable bounding box)' : '❌ OFF (manual positioning)'}</p>
         </div>
       </div>
 
@@ -269,20 +212,6 @@ export function App() {
                 </Canvas>
               </div>
             </div>
-
-            {/* Product Selector */}
-            <ProductSelector 
-              products={tShirts}
-              selectedProduct={selectedProduct}
-              onSelectProduct={setSelectedProduct}
-            />
-
-            {/* Selected Product Info */}
-            {selectedProduct && (
-              <div className="bg-white rounded-lg shadow-lg p-4">
-                <ProductCard product={selectedProduct} />
-              </div>
-            )}
           </div>
         )}
       </div>
