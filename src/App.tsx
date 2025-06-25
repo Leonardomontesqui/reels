@@ -29,54 +29,60 @@ function TestBox() {
 function CameraFitter({ children }: { children: React.ReactNode }) {
   const { camera, controls } = useThree();
   const groupRef = useRef<THREE.Group>(null);
+  const [fitted, setFitted] = useState(false);
 
   useEffect(() => {
-    if (groupRef.current && controls) {
-      // Calculate bounding box of the model
-      const box = new THREE.Box3().setFromObject(groupRef.current);
-      const size = box.getSize(new THREE.Vector3()).length();
-      const center = box.getCenter(new THREE.Vector3());
+    if (groupRef.current && controls && !fitted) {
+      // Wait a frame for the model to be fully loaded
+      const timer = setTimeout(() => {
+        if (!groupRef.current) return;
+        
+        // Calculate bounding box of the model
+        const box = new THREE.Box3().setFromObject(groupRef.current);
+        
+        // Check if we have a valid bounding box
+        if (box.isEmpty()) return;
+        
+        const size = box.getSize(new THREE.Vector3()).length();
+        const center = box.getCenter(new THREE.Vector3());
 
-      // Reset controls
-      if ('reset' in controls) {
-        (controls as any).reset();
-      }
+        // Only proceed if we have a reasonable size
+        if (size === 0 || size > 1000) return;
 
-      // Position model at center
-      groupRef.current.position.x += (groupRef.current.position.x - center.x);
-      groupRef.current.position.y += (groupRef.current.position.y - center.y);
-      groupRef.current.position.z += (groupRef.current.position.z - center.z);
+        // Set control distances based on model size
+        if ('maxDistance' in controls && 'minDistance' in controls) {
+          (controls as any).maxDistance = size * 8;
+          (controls as any).minDistance = size * 0.1;
+        }
 
-      // Set control distances based on model size
-      if ('maxDistance' in controls && 'minDistance' in controls) {
-        (controls as any).maxDistance = size * 10;
-        (controls as any).minDistance = size * 0.5;
-      }
+        // Set camera planes based on model size
+        camera.near = Math.max(0.1, size / 100);
+        camera.far = Math.min(2000, size * 100);
+        camera.updateProjectionMatrix();
 
-      // Set camera planes based on model size
-      camera.near = size / 100;
-      camera.far = size * 100;
-      camera.updateProjectionMatrix();
+        // Position camera to view the model at optimal distance
+        const distance = size * 1.5;
+        camera.position.set(distance * 0.5, distance * 0.3, distance);
+        camera.lookAt(center);
 
-      // Position camera to view the model
-      const distance = size * 2;
-      camera.position.copy(center);
-      camera.position.z += distance;
-      camera.lookAt(center);
+        // Update controls target to center of model
+        if ('target' in controls) {
+          (controls as any).target.copy(center);
+          (controls as any).update();
+        }
 
-      // Update controls target
-      if ('target' in controls) {
-        (controls as any).target.copy(center);
-        (controls as any).update();
-      }
+        setFitted(true);
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
-  }, [camera, controls]);
+  }, [camera, controls, fitted]);
 
   return <group ref={groupRef}>{children}</group>;
 }
 
 // LEGO Minifig GLB Model Component
-function LEGOMinifig({ selectedProduct }: { selectedProduct: any }) {
+function LEGOMinifig({ selectedProduct, autoFit }: { selectedProduct: any; autoFit: boolean }) {
   const meshRef = useRef<any>(null);
   
   // Load the GLB model
@@ -92,17 +98,27 @@ function LEGOMinifig({ selectedProduct }: { selectedProduct: any }) {
   // Clone the scene to avoid sharing issues
   const clonedScene = scene.clone();
 
+  if (autoFit) {
+    return (
+      <CameraFitter>
+        <group ref={meshRef}>
+          <primitive object={clonedScene} />
+        </group>
+      </CameraFitter>
+    );
+  }
+
   return (
-    <CameraFitter>
-      <group ref={meshRef}>
+    <Center>
+      <group ref={meshRef} scale={[2, 2, 2]}>
         <primitive object={clonedScene} />
       </group>
-    </CameraFitter>
+    </Center>
   );
 }
 
 // Fallback LEGO Figure Component (if GLB fails to load)
-function LEGOFigureFallback({ selectedProduct }: { selectedProduct: any }) {
+function LEGOFigureFallback({ selectedProduct, autoFit }: { selectedProduct: any; autoFit: boolean }) {
   const meshRef = useRef<any>(null);
   
   // Rotate the figure slowly
@@ -112,78 +128,88 @@ function LEGOFigureFallback({ selectedProduct }: { selectedProduct: any }) {
     }
   });
 
+  const figureContent = (
+    <group ref={meshRef}>
+      {/* Head */}
+      <mesh position={[0, 1.8, 0]}>
+        <cylinderGeometry args={[0.6, 0.6, 0.8, 8]} />
+        <meshStandardMaterial color="#FFDC5D" />
+      </mesh>
+      
+      {/* Face dots */}
+      <mesh position={[-0.2, 1.9, 0.55]}>
+        <sphereGeometry args={[0.05]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+      <mesh position={[0.2, 1.9, 0.55]}>
+        <sphereGeometry args={[0.05]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+      <mesh position={[0, 1.7, 0.55]}>
+        <sphereGeometry args={[0.03]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+      
+      {/* Torso - Simple colored version for now */}
+      <mesh position={[0, 1, 0]}>
+        <cylinderGeometry args={[0.7, 0.7, 1.6, 8]} />
+        <meshStandardMaterial color={selectedProduct ? "#E74C3C" : "#E74C3C"} />
+      </mesh>
+      
+      {/* Arms */}
+      <mesh position={[-0.9, 1, 0]}>
+        <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
+        <meshStandardMaterial color="#FFDC5D" />
+      </mesh>
+      <mesh position={[0.9, 1, 0]}>
+        <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
+        <meshStandardMaterial color="#FFDC5D" />
+      </mesh>
+      
+      {/* Legs */}
+      <mesh position={[-0.3, -0.3, 0]}>
+        <cylinderGeometry args={[0.2, 0.2, 1.4, 8]} />
+        <meshStandardMaterial color="#4A90E2" />
+      </mesh>
+      <mesh position={[0.3, -0.3, 0]}>
+        <cylinderGeometry args={[0.2, 0.2, 1.4, 8]} />
+        <meshStandardMaterial color="#4A90E2" />
+      </mesh>
+      
+      {/* Feet */}
+      <mesh position={[-0.3, -1.2, 0.2]}>
+        <boxGeometry args={[0.4, 0.2, 0.6]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+      <mesh position={[0.3, -1.2, 0.2]}>
+        <boxGeometry args={[0.4, 0.2, 0.6]} />
+        <meshStandardMaterial color="#000000" />
+      </mesh>
+    </group>
+  );
+
+  if (autoFit) {
+    return <CameraFitter>{figureContent}</CameraFitter>;
+  }
+
   return (
-    <CameraFitter>
-      <group ref={meshRef}>
-        {/* Head */}
-        <mesh position={[0, 1.8, 0]}>
-          <cylinderGeometry args={[0.6, 0.6, 0.8, 8]} />
-          <meshStandardMaterial color="#FFDC5D" />
-        </mesh>
-        
-        {/* Face dots */}
-        <mesh position={[-0.2, 1.9, 0.55]}>
-          <sphereGeometry args={[0.05]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
-        <mesh position={[0.2, 1.9, 0.55]}>
-          <sphereGeometry args={[0.05]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
-        <mesh position={[0, 1.7, 0.55]}>
-          <sphereGeometry args={[0.03]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
-        
-        {/* Torso - Simple colored version for now */}
-        <mesh position={[0, 1, 0]}>
-          <cylinderGeometry args={[0.7, 0.7, 1.6, 8]} />
-          <meshStandardMaterial color={selectedProduct ? "#E74C3C" : "#E74C3C"} />
-        </mesh>
-        
-        {/* Arms */}
-        <mesh position={[-0.9, 1, 0]}>
-          <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
-          <meshStandardMaterial color="#FFDC5D" />
-        </mesh>
-        <mesh position={[0.9, 1, 0]}>
-          <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
-          <meshStandardMaterial color="#FFDC5D" />
-        </mesh>
-        
-        {/* Legs */}
-        <mesh position={[-0.3, -0.3, 0]}>
-          <cylinderGeometry args={[0.2, 0.2, 1.4, 8]} />
-          <meshStandardMaterial color="#4A90E2" />
-        </mesh>
-        <mesh position={[0.3, -0.3, 0]}>
-          <cylinderGeometry args={[0.2, 0.2, 1.4, 8]} />
-          <meshStandardMaterial color="#4A90E2" />
-        </mesh>
-        
-        {/* Feet */}
-        <mesh position={[-0.3, -1.2, 0.2]}>
-          <boxGeometry args={[0.4, 0.2, 0.6]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
-        <mesh position={[0.3, -1.2, 0.2]}>
-          <boxGeometry args={[0.4, 0.2, 0.6]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
+    <Center>
+      <group scale={[1.5, 1.5, 1.5]}>
+        {figureContent}
       </group>
-    </CameraFitter>
+    </Center>
   );
 }
 
 // Error Boundary for GLB loading
-function ModelWithFallback({ selectedProduct, showGLB }: { selectedProduct: any; showGLB: boolean }) {
+function ModelWithFallback({ selectedProduct, showGLB, autoFit }: { selectedProduct: any; showGLB: boolean; autoFit: boolean }) {
   if (!showGLB) {
-    return <LEGOFigureFallback selectedProduct={selectedProduct} />;
+    return <LEGOFigureFallback selectedProduct={selectedProduct} autoFit={autoFit} />;
   }
 
   return (
-    <Suspense fallback={<LEGOFigureFallback selectedProduct={selectedProduct} />}>
-      <LEGOMinifig selectedProduct={selectedProduct} />
+    <Suspense fallback={<LEGOFigureFallback selectedProduct={selectedProduct} autoFit={autoFit} />}>
+      <LEGOMinifig selectedProduct={selectedProduct} autoFit={autoFit} />
     </Suspense>
   );
 }
@@ -233,6 +259,7 @@ export function App() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [showTestBox, setShowTestBox] = useState(false);
   const [showGLB, setShowGLB] = useState(true);
+  const [autoFit, setAutoFit] = useState(true);
 
   // Filter for t-shirts and clothing items
   const tShirts = products?.filter((product: any) => {
@@ -308,6 +335,12 @@ export function App() {
           >
             {showGLB ? 'Show Fallback' : 'Show GLB Model'}
           </button>
+          <button 
+            onClick={() => setAutoFit(!autoFit)}
+            className={`${autoFit ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded text-sm`}
+          >
+            Auto-Fit: {autoFit ? 'ON' : 'OFF'}
+          </button>
         </div>
       </div>
 
@@ -315,13 +348,13 @@ export function App() {
       <div className="px-4 pb-4">
         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm">
           <p><strong>Debug Info:</strong></p>
-          <p>Products loaded: {products?.length || 0}</p>
+          <p>Popular Products loaded: {products?.length || 0}</p>
           <p>T-shirts found: {tShirts.length}</p>
           <p>Selected product: {selectedProduct?.title || 'None'}</p>
           <p>Show test box: {showTestBox ? 'Yes' : 'No'}</p>
           <p>GLB Model: {showGLB ? 'Enabled' : 'Disabled'}</p>
           <p>Model path: /models/minifig.glb</p>
-          <p>✅ Using bounding box camera positioning (Three.js forum solution)</p>
+          <p>Auto-Fit: {autoFit ? '✅ ON (stable bounding box)' : '❌ OFF (manual positioning)'}</p>
         </div>
       </div>
 
@@ -361,6 +394,7 @@ export function App() {
                       <ModelWithFallback 
                         selectedProduct={selectedProduct} 
                         showGLB={showGLB}
+                        autoFit={autoFit}
                       />
                     )}
                     
@@ -376,16 +410,6 @@ export function App() {
                     />
                   </Suspense>
                 </Canvas>
-                
-                {/* Instructions overlay */}
-                <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-3 py-2 rounded-lg text-sm">
-                  🖱️ Drag to rotate • 🔍 Scroll to zoom • 📐 Auto-fitted to model bounds
-                </div>
-                
-                {/* Canvas Info */}
-                <div className="absolute bottom-4 right-4 bg-white bg-opacity-80 px-3 py-2 rounded text-xs">
-                  {showTestBox ? 'Test Box' : showGLB ? 'GLB Model' : 'Fallback Figure'}
-                </div>
               </div>
             </div>
 
