@@ -1,29 +1,10 @@
 import React, { Suspense, useState, useRef, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Center, Bounds } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, useGLTF, Center } from '@react-three/drei';
 import { usePopularProducts, ProductCard } from "@shopify/shop-minis-react";
 import * as THREE from 'three';
 
-// Simple rotating box to test if Three.js is working
-function TestBox() {
-  const meshRef = useRef<any>(null);
-  
-  useFrame((state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x += delta;
-      meshRef.current.rotation.y += delta;
-    }
-  });
 
-  return (
-    <CameraFitter>
-      <mesh ref={meshRef} scale={[2, 2, 2]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={'hotpink'} />
-      </mesh>
-    </CameraFitter>
-  );
-}
 
 // Camera positioning component based on model bounding box
 function CameraFitter({ children }: { children: React.ReactNode }) {
@@ -88,13 +69,6 @@ function LEGOMinifig({ selectedProduct, autoFit }: { selectedProduct: any; autoF
   // Load the GLB model
   const { scene } = useGLTF('/models/minifig.glb');
   
-  // Rotate the figure slowly
-  useFrame((state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.3;
-    }
-  });
-
   // Clone the scene to avoid sharing issues
   const clonedScene = scene.clone();
 
@@ -117,102 +91,9 @@ function LEGOMinifig({ selectedProduct, autoFit }: { selectedProduct: any; autoF
   );
 }
 
-// Fallback LEGO Figure Component (if GLB fails to load)
-function LEGOFigureFallback({ selectedProduct, autoFit }: { selectedProduct: any; autoFit: boolean }) {
-  const meshRef = useRef<any>(null);
-  
-  // Rotate the figure slowly
-  useFrame((state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.3;
-    }
-  });
 
-  const figureContent = (
-    <group ref={meshRef}>
-      {/* Head */}
-      <mesh position={[0, 1.8, 0]}>
-        <cylinderGeometry args={[0.6, 0.6, 0.8, 8]} />
-        <meshStandardMaterial color="#FFDC5D" />
-      </mesh>
-      
-      {/* Face dots */}
-      <mesh position={[-0.2, 1.9, 0.55]}>
-        <sphereGeometry args={[0.05]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-      <mesh position={[0.2, 1.9, 0.55]}>
-        <sphereGeometry args={[0.05]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-      <mesh position={[0, 1.7, 0.55]}>
-        <sphereGeometry args={[0.03]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-      
-      {/* Torso - Simple colored version for now */}
-      <mesh position={[0, 1, 0]}>
-        <cylinderGeometry args={[0.7, 0.7, 1.6, 8]} />
-        <meshStandardMaterial color={selectedProduct ? "#E74C3C" : "#E74C3C"} />
-      </mesh>
-      
-      {/* Arms */}
-      <mesh position={[-0.9, 1, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
-        <meshStandardMaterial color="#FFDC5D" />
-      </mesh>
-      <mesh position={[0.9, 1, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
-        <meshStandardMaterial color="#FFDC5D" />
-      </mesh>
-      
-      {/* Legs */}
-      <mesh position={[-0.3, -0.3, 0]}>
-        <cylinderGeometry args={[0.2, 0.2, 1.4, 8]} />
-        <meshStandardMaterial color="#4A90E2" />
-      </mesh>
-      <mesh position={[0.3, -0.3, 0]}>
-        <cylinderGeometry args={[0.2, 0.2, 1.4, 8]} />
-        <meshStandardMaterial color="#4A90E2" />
-      </mesh>
-      
-      {/* Feet */}
-      <mesh position={[-0.3, -1.2, 0.2]}>
-        <boxGeometry args={[0.4, 0.2, 0.6]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-      <mesh position={[0.3, -1.2, 0.2]}>
-        <boxGeometry args={[0.4, 0.2, 0.6]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
-    </group>
-  );
 
-  if (autoFit) {
-    return <CameraFitter>{figureContent}</CameraFitter>;
-  }
 
-  return (
-    <Center>
-      <group scale={[1.5, 1.5, 1.5]}>
-        {figureContent}
-      </group>
-    </Center>
-  );
-}
-
-// Error Boundary for GLB loading
-function ModelWithFallback({ selectedProduct, showGLB, autoFit }: { selectedProduct: any; showGLB: boolean; autoFit: boolean }) {
-  if (!showGLB) {
-    return <LEGOFigureFallback selectedProduct={selectedProduct} autoFit={autoFit} />;
-  }
-
-  return (
-    <Suspense fallback={<LEGOFigureFallback selectedProduct={selectedProduct} autoFit={autoFit} />}>
-      <LEGOMinifig selectedProduct={selectedProduct} autoFit={autoFit} />
-    </Suspense>
-  );
-}
 
 // Product selector component
 function ProductSelector({ products, selectedProduct, onSelectProduct }: {
@@ -257,8 +138,6 @@ function ProductSelector({ products, selectedProduct, onSelectProduct }: {
 export function App() {
   const { products, loading, error } = usePopularProducts();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [showTestBox, setShowTestBox] = useState(false);
-  const [showGLB, setShowGLB] = useState(true);
   const [autoFit, setAutoFit] = useState(true);
 
   // Filter for t-shirts and clothing items
@@ -322,19 +201,7 @@ export function App() {
         </p>
         
         {/* Debug Toggle */}
-        <div className="text-center mb-4 space-x-2">
-          <button 
-            onClick={() => setShowTestBox(!showTestBox)}
-            className="bg-gray-500 text-white px-3 py-1 rounded text-sm"
-          >
-            {showTestBox ? 'Show LEGO Figure' : 'Show Test Box'}
-          </button>
-          <button 
-            onClick={() => setShowGLB(!showGLB)}
-            className="bg-purple-500 text-white px-3 py-1 rounded text-sm"
-          >
-            {showGLB ? 'Show Fallback' : 'Show GLB Model'}
-          </button>
+        <div className="text-center mb-4">
           <button 
             onClick={() => setAutoFit(!autoFit)}
             className={`${autoFit ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded text-sm`}
@@ -351,8 +218,6 @@ export function App() {
           <p>Popular Products loaded: {products?.length || 0}</p>
           <p>T-shirts found: {tShirts.length}</p>
           <p>Selected product: {selectedProduct?.title || 'None'}</p>
-          <p>Show test box: {showTestBox ? 'Yes' : 'No'}</p>
-          <p>GLB Model: {showGLB ? 'Enabled' : 'Disabled'}</p>
           <p>Model path: /models/minifig.glb</p>
           <p>Auto-Fit: {autoFit ? '✅ ON (stable bounding box)' : '❌ OFF (manual positioning)'}</p>
         </div>
@@ -387,16 +252,8 @@ export function App() {
                     <directionalLight position={[5, 5, 5]} intensity={1.2} />
                     <hemisphereLight color="#ffffff" groundColor="#444444" intensity={0.5} />
                     
-                    {/* Show test box, GLB model, or fallback figure */}
-                    {showTestBox ? (
-                      <TestBox />
-                    ) : (
-                      <ModelWithFallback 
-                        selectedProduct={selectedProduct} 
-                        showGLB={showGLB}
-                        autoFit={autoFit}
-                      />
-                    )}
+                    {/* Show GLB model */}
+                    <LEGOMinifig selectedProduct={selectedProduct} autoFit={autoFit} />
                     
                     {/* Controls */}
                     <OrbitControls 
