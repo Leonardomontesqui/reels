@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { usePopularProducts } from "@shopify/shop-minis-react";
+import { BackgroundPaths } from "./components/ui/background-paths";
 
 // Character Display Component
 function CharacterDisplay({
@@ -48,6 +49,17 @@ function CharacterDisplay({
   );
 }
 
+// Hero Section Component
+function HeroSection({ onStartCustomization }: { onStartCustomization: () => void }) {
+  return (
+    <BackgroundPaths
+      title="MINIs Figure"
+      buttonText="Create your MINI"
+      onButtonClick={onStartCustomization}
+    />
+  );
+}
+
 // Character Customization Page
 function CharacterCustomization({
   selectedHead,
@@ -60,6 +72,7 @@ function CharacterCustomization({
   torsoParts,
   legParts,
   onNext,
+  onBack,
 }: {
   selectedHead: number;
   setSelectedHead: (value: number) => void;
@@ -71,13 +84,17 @@ function CharacterCustomization({
   torsoParts: string[];
   legParts: string[];
   onNext: () => void;
+  onBack: () => void;
 }) {
   return (
     <div className="min-h-screen bg-white pb-6">
       {/* Header */}
       <div className="flex justify-between items-center p-4 pt-8">
-        <button className="w-8 h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-lg font-bold">
-          ×
+        <button 
+          onClick={onBack}
+          className="w-8 h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-lg font-bold"
+        >
+          ←
         </button>
         <button
           onClick={onNext}
@@ -422,34 +439,6 @@ function ProductSelection({
     });
   };
 
-  // Auto-selection disabled - no products pre-selected
-  // useEffect(() => {
-  //   if (products && products.length > 0) {
-  //     const autoSelections: { [key: string]: string | string[] } = {};
-
-  //     Object.entries(groupedProducts).forEach(
-  //       ([category, categoryProducts]) => {
-  //         if (categoryProducts.length > 0 && !selectedProducts[category]) {
-  //           if (category === "Accessories") {
-  //             // For accessories, select the first product as an array
-  //             autoSelections[category] = [categoryProducts[0].id];
-  //           } else {
-  //             // For other categories, single selection
-  //             autoSelections[category] = categoryProducts[0].id;
-  //           }
-  //         }
-  //       }
-  //     );
-
-  //     if (Object.keys(autoSelections).length > 0) {
-  //       setSelectedProducts((prev) => ({
-  //         ...prev,
-  //         ...autoSelections,
-  //       }));
-  //     }
-  //   }
-  // }, [products, groupedProducts]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -530,9 +519,11 @@ function ProductSelection({
           Choose Your Products
         </h2>
 
-        {Object.entries(groupedProducts)
-          .filter(([productType]) => productType !== "Other") // Hide "Other" category
-          .map(([productType, typeProducts]: [string, any[]]) => (
+        {["Top", "Bottom", "Accessories"]
+          .filter((productType) => groupedProducts[productType] && groupedProducts[productType].length > 0)
+          .map((productType) => {
+            const typeProducts = groupedProducts[productType];
+            return (
             <div key={productType}>
               <h3 className="text-xl font-bold text-gray-800 mb-3 capitalize">
                 {productType}
@@ -587,7 +578,8 @@ function ProductSelection({
                 })}
               </div>
             </div>
-          ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -616,16 +608,29 @@ export function App() {
   const [selectedTorso, setSelectedTorso] = useState(0);
   const [selectedLegs, setSelectedLegs] = useState(0);
 
-  // State for current page
-  const [currentPage, setCurrentPage] = useState("character"); // 'character' or 'products'
+  // State for current page: 'hero', 'character', or 'products'
+  const [currentPage, setCurrentPage] = useState("hero");
 
-  const handleNext = () => {
+  const handleStartCustomization = () => {
+    setCurrentPage("character");
+  };
+
+  const handleCharacterNext = () => {
     setCurrentPage("products");
   };
 
-  const handleBack = () => {
+  const handleCharacterBack = () => {
+    setCurrentPage("hero");
+  };
+
+  const handleProductsBack = () => {
     setCurrentPage("character");
   };
+
+  // Render the appropriate page based on current state
+  if (currentPage === "hero") {
+    return <HeroSection onStartCustomization={handleStartCustomization} />;
+  }
 
   if (currentPage === "products") {
     return (
@@ -636,7 +641,7 @@ export function App() {
         faces={faces}
         torsoParts={torsoParts}
         legParts={legParts}
-        onBack={handleBack}
+        onBack={handleProductsBack}
       />
     );
   }
@@ -652,7 +657,8 @@ export function App() {
       faces={faces}
       torsoParts={torsoParts}
       legParts={legParts}
-      onNext={handleNext}
+      onNext={handleCharacterNext}
+      onBack={handleCharacterBack}
     />
   );
 }
